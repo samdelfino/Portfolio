@@ -1,0 +1,640 @@
+---
+title: "California Public Schools Suspension Rate Report"
+author: "Sam Delfino"
+date: "5/8/2019"
+output: 
+  html_document:
+    theme: "cerulean"
+    code_folding: "hide"
+---
+
+## Suspension Rates of and Disparities Between Foster Youth and Homeless Youth in the State of California 2016-2018
+
+Foster youths are some of the most disadvantaged student groups in California and suspended more than any other student group (California Dashboard, [2018]).^8^  Suspending any student shows no positive results for the student suspended or their peers.^11^ Out-of-school suspensions lead to negative academic performance.^11^ Suspending the student also leads to the student being absent more.^11^  As foster youth are a vulnerable student population, it is important to study factors that may affect their academic outcomes, given that they are among the lowest achieving students in math and English.^7^  This report, based off of findings from research conducted by Educational Results Partnership, examines the suspension^1^ and chronic absenteeism^2^ rates of foster youth K-12 from schools, districts, and counties. It takes into account both foster youth^3^ and homeless youth^4^, analyzing the rate at which the two groups are suspended in school. 
+
+The report “Get Out! Black Male Suspensions in California Public Schools” by the Black Male Institute at UCLA and Black Minds Project at San Diego State University have determined that among foster youths, African American males tend to have the highest suspension rates in the state.^22^ Although the report by the Black Minds Project and Black Male Institute are important, the aim of the report below is to examine foster youth as a group to determine whether there are specific regions in CA where foster youth suspension rates are particularly high. This report helps provide additional insight on how this population are suspended from school at a higher rate compared to other students.
+
+This report is trying to find:
+- Is there a relationship between the suspension rates of foster youth and the chronic absenteeism rate of foster youth?
+- Is there a relationship between the main causes of suspensions and the suspension rates?
+- Could it have to do with specific areas of California or if it is a statewide issue?
+The 2016-2018 data used in the following analyses were publicly available data about K-12 students from California Department of Education.^9,21^  
+
+
+```{r}
+setwd("~/Desktop/suspension_california_files")
+
+suspensions = read.csv("suspensions 2017-2018.txt", sep = "\t", stringsAsFactors = F, na.strings = "*")
+
+suspensions$SuspensionsPerEnroll = suspensions$Total.Suspensions/suspensions$Cumulative.Enrollment
+
+suspensionsFH = subset(suspensions, ReportingCategory == "SF" | ReportingCategory == "SH")
+
+```
+
+### Figure 1
+```{r,message=F,warning=F}
+library(ggplot2)
+
+AvgAllSuspensions = aggregate(suspensions$SuspensionsPerEnroll, list(suspensions$ReportingCategory), mean, na.rm = T)
+
+AvgAllSuspensions$x = AvgAllSuspensions$x*100
+
+ALL =ggplot(data = AvgAllSuspensions, aes(x=Group.1, y=x, fill=Group.1)) + geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=2.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Female", "Male", "Asian", "African American", "Not Reported", "Filipino", "Hispanic or Latino", "American Indian or Alaska Native", "Pacific Islander", "Two or More Races", "White", "Students with Disabilities", "English Learners", "Foster", "Homeless", "Migrant", "Socioeconomically Disadvantaged", "Total" )) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7))+
+  xlab("Student Groups") + 
+  ylab("Average Rate of Suspension Per Enrollment")+
+  ggtitle("Average Rate of Suspension Per Enrollment By Student Group") +
+  theme(plot.title = element_text(size = 12, face = "bold"))+
+  theme(legend.position="none")
+  
+
+ALL
+
+```
+
+All K-12 students in California in the 2017-2018 school year were disaggregated based on their gender, race, housing status, and other categories*. Of all these categories, foster youth were suspended more than any other group in the state of California. The suspension rate was measured by the total recorded number of students suspended in the 2017-18 school year in each identified group, divided by the total recorded number of students in the 2017-2018 school year in the state in that group. 
+
+*All categories include Not Reported data which are students who are not reported in any group listed in the graph.  
+
+### Figure 2
+```{r}
+
+suspensionsFHA = subset(suspensions,  ReportingCategory == "SF" | ReportingCategory == "SH" | ReportingCategory == "TA" )
+
+suspensionsavgFHA = aggregate(suspensionsFHA$SuspensionsPerEnroll, list(suspensionsFHA$ReportingCategory), mean, na.rm=T)
+
+suspensionsavgFHA$x = suspensionsavgFHA$x*100
+
+FH = ggplot(data = suspensionsavgFHA, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Foster Youth", "Homeless Youth", "Total Students")) +
+  xlab("Student Groups") + 
+  ylab("Average Rate of Suspension Per Enrollment")+
+  theme(plot.title = element_text(size = 11.5, face = "bold"))+
+  ggtitle("Average Rate of Suspension Per Enrollment of Foster and Homeless Youth") +
+  scale_fill_discrete(name = "Groups", labels = c("Foster Youth", "Homeless Youth", "Total Students"))+
+  theme(legend.position="none")
+
+FH
+
+```
+
+This study, which focuses on foster youth, homeless youth, and total students, found a statistically significant relationship between suspension rates and student groups, particularly for vulnerable groups. Foster youth were suspended three times more than the state average of all students and almost two times more than homeless youth, who were suspended almost two times more than the state average for all students.
+
+## Primary Cause of Suspensions for Homeless and Foster Youth
+
+### Figure 3
+```{r,warning=F,message=F}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+suspensionsFHA$drugPerEnroll = suspensionsFHA$Suspension.Count.Illicit.Drug.Related / suspensionsFHA$Cumulative.Enrollment
+
+suspensionsFHA$defianceperenroll = suspensionsFHA$Suspension.Count.Defiance.Only/suspensionsFHA$Cumulative.Enrollment
+
+suspensionsFHA$weaponsPerEnroll = suspensionsFHA$Suspension.Count.Weapons.Possession/suspensionsFHA$Cumulative.Enrollment
+
+suspensionsFHA$OtherPerEnroll = suspensionsFHA$Suspension.Count.Other.Reasons/suspensionsFHA$Cumulative.Enrollment
+
+suspensionsFHA$ViolentPerEnroll = (suspensionsFHA$Suspension.Count.Violent.Incident..Injury. + suspensionsFHA$Suspension.Count.Violent.Incident..No.Injury.) / suspensionsFHA$Cumulative.Enrollment
+
+suspensionsFHAggplot2 = aggregate( suspensionsFHA$drugPerEnroll, list(RC = suspensionsFHA$ReportingCategory, weapons = suspensionsFHA$weaponsPerEnroll, other = suspensionsFHA$OtherPerEnroll, defiance = suspensionsFHA$defianceperenroll, violent = suspensionsFHA$ViolentPerEnroll), mean,  na.rm = T)
+
+suspensionsFHAggplot2= suspensionsFHA %>%
+  group_by(ReportingCategory) %>%
+  summarise(VPE = mean(ViolentPerEnroll, na.rm = T), DPE = mean(drugPerEnroll, na.rm = T), DefPE = mean(defianceperenroll, na.rm = T), WPE = mean(weaponsPerEnroll, na.rm = T), OPE = mean(OtherPerEnroll, na.rm = T))
+
+susFHAPlot = gather(suspensionsFHAggplot2, RC, value, VPE:OPE)
+
+susFHAPlot$value = susFHAPlot$value*100
+
+Type = ggplot(data = susFHAPlot, aes(ReportingCategory, value)) +geom_bar(aes(fill = RC), stat = "identity", position = "dodge") + 
+  theme_minimal()+
+  scale_x_discrete(labels=c("Foster Youth", "Homeless Youth", "Total Students")) +
+  xlab("Student Groups") + 
+  ylab("Average Rate of Suspension Per Enrollment")+
+  theme(plot.title = element_text(size = 11.5, face = "bold"))+
+  ggtitle("Measuring Type of Suspension for Foster Youth and Homeless Youth") +
+  scale_fill_discrete(name = "Groups", labels = c( "Defiance Only", "Illicit Drugs",   "Other", "Violent(Injury and No Injury)", "Weapons"))
+ 
+
+Type
+
+```
+
+Violent suspensions^5^ are the leading cause of suspension for foster youth, homeless youth, and all students in California. There is a significant difference between the rate of suspension for violent incidents and any other reason for suspension. For foster youth, that difference is larger than the difference for homeless youth and all students.
+
+### Figure 4
+```{r,warning=F,message=F}
+
+ViolentMean = aggregate(suspensionsFHA$ViolentPerEnroll, list(suspensionsFHA$ReportingCategory), mean, na.rm=T)
+
+suspensionsFHA$AvgViolentSuspension = (suspensionsFHA$Suspension.Count.Violent.Incident..Injury. + suspensionsFHA$Suspension.Count.Violent.Incident..No.Injury.)/suspensionsFHA$Cumulative.Enrollment
+
+ViolentMean$x = ViolentMean$x*100
+
+library(ggplot2)
+
+AVS = ggplot(data = ViolentMean, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Foster Youth", "Homeless Youth", "Total Students")) +
+  xlab("Student Groups") + 
+  ylab("Average Rate of Violent Suspensions Per Enrollment")+
+  ggtitle("Average Rate of Violent Suspensions Per Enrollment of Foster and Homeless Youth") +
+  theme(plot.title = element_text(size = 11.2, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("Foster Youth", "Homeless Youth", "Total Students"))+
+  theme(legend.position="none")
+
+
+AVS
+
+```
+
+Similar to average suspension rates outcomes, foster youth had the highest violent suspension rate for all three groups.  The rates between foster youth, homeless youth, and total students are significantly different.  The rate of violent suspensions for foster youth is two times the rate of violent suspension for homeless youth and more than three times the rate of suspension for all students.  The rate of violent suspensions for homeless youth is almost two times the violent suspension rate of all students. This follows the trend for the average rate of suspensions for foster youth, homeless youth and total students reported in Figure 2.  
+
+### Figure 5
+```{r}
+
+suspensionsCalifornia = read.csv("suspensionByCounty.txt", sep = "\t", stringsAsFactors = F, na.strings = "")
+
+suspensionsCountyFHA = subset(suspensionsCalifornia, studentgroup == "FOS" | studentgroup == "HOM" | studentgroup == "ALL")
+
+suspensionsChangeFHA = aggregate(suspensionsCountyFHA$priorstatus, list(suspensionsCountyFHA$studentgroup), mean, na.rm = T)
+
+suspensionsChangeFHA$Group.1 = factor(suspensionsChangeFHA$Group.1, levels=c("FOS", "HOM", "ALL"))
+
+```
+
+
+```{r,warning=F,message=F}
+
+suspensionsCalifornia = read.csv("suspensionByCounty.txt", sep = "\t", stringsAsFactors = F, na.strings = "")
+
+suspensionsCountyFHA = subset(suspensionsCalifornia, studentgroup == "FOS" | studentgroup == "HOM" | studentgroup == "ALL")
+
+suspensionsChangeFHA = aggregate(suspensionsCountyFHA$priorstatus, list(suspensionsCountyFHA$studentgroup), mean, na.rm = T)
+
+suspensionsChangeFHA$Group.1 = factor(suspensionsChangeFHA$Group.1, levels=c("FOS", "HOM", "ALL"))
+
+suspensionsavgFHA$Group.1[suspensionsavgFHA$Group.1 == "SF"] <- "FOS"
+
+suspensionsavgFHA$Group.1[suspensionsavgFHA$Group.1 == "SH"] <- "HOM"
+
+suspensionsavgFHA$Group.1[suspensionsavgFHA$Group.1 == "TA"] <- "ALL"
+
+suspensionsavgFHA$Year = "2017-2018"
+
+suspensionsChangeFHA = arrange(suspensionsChangeFHA, desc(x))
+
+suspensionsChangeFHA$Year = "2016-2017"
+
+suspensionChange = bind_rows(suspensionsChangeFHA, suspensionsavgFHA)
+
+changeFHAggplot2= suspensionChange %>%
+  group_by(x) 
+
+changeFHAggplot2 = rename(changeFHAggplot2, Category = "Group.1", Rate = "x")
+
+changeFHAggplot2$Category = factor(changeFHAggplot2$Category, levels=c("FOS", "HOM", "ALL"))
+
+Change = ggplot(changeFHAggplot2, aes(x= Year, y= Rate, color= Category))+
+  geom_line(aes(group=Category), stat = "identity")+
+  labs(colour = "Groups")+
+  scale_x_discrete(labels=c("2016-2017", "2017-2018")) +
+  xlab("School Year") + 
+  ylab("Average Rate of Suspension Per Enrollment")+
+  theme(plot.title = element_text(size = 11.5, face = "bold"))+
+  ggtitle("Measuring Change in Rate of Suspension From 2016-2017 to 2017-2018")+
+  scale_color_discrete(labels=c("Foster Youth", "Homeless Youth", "Total Students"))+
+  theme_minimal()
+
+Change
+
+```
+
+
+By comparison, when viewing the rates in the 2016-17 school year, the average suspension rates per enrollment of this report’s three focus groups were lower than the 2017-2018 school year. The rate of suspension for foster youth almost doubled between the 2016-2017 and 2017-2018 school year. The rate of suspension for homeless youth also almost doubled between the 2016-2017 and 2017-2018 school year. The average rate of suspension for all students in the state of California only increased by 2%.
+
+### Figure 6
+```{r}
+
+suspensionsCountyF = subset(suspensionsCalifornia , studentgroup == "FOS")
+
+suspensionsSacramento = subset(suspensionsCountyF, countyname == "Sacramento")
+
+suspensionsSacDistricts = subset(suspensionsSacramento, districtname == "Sacramento City Unified")
+
+suspensionssacMean = mean(suspensionsSacDistricts$currstatus, na.rm = T) 
+
+suspensionsCountyF$suspensionrate = suspensionsCountyF$currnumer / suspensionsCountyF$currdenom
+
+suspensionsByCounty = aggregate(suspensionsCountyF$suspensionrate, list(suspensionsCountyF$countyname), mean, na.rm=T)
+
+```
+
+```{r,warning=F,message=F}
+
+library(sf)
+library(raster)
+library(dplyr)
+library(spData)
+#library(spDataLarge)
+
+library(tmap)    # for static and interactive maps
+library(leaflet) # for interactive maps
+library(mapview) # for interactive maps
+library(ggplot2) # tidyverse vis package
+library(shiny)   # for web applications
+
+library(rvest)
+library(stringr)
+library(rgdal)
+library(rmapshaper)
+library(mapview)
+
+```
+
+
+```{r,warning=F,message=F}
+wd = "/Users/sdelfino/Desktop/suspension_california_files/CA County"
+
+USCounties = readOGR(dsn=wd, layer = "tl_2016_us_county",stringsAsFactors = F, GDAL1_integer64_policy = T)
+
+californiaCounties = subset(USCounties,STATEFP == "06")
+
+pal = colorNumeric("viridis",NULL)
+
+```
+
+
+```{r}
+
+suspensionsByCounty = rename(suspensionsByCounty, NAME=Group.1, FosterSuspensions=x)
+
+californiaCounties@data = left_join(californiaCounties@data, suspensionsByCounty, by="NAME")
+
+californiaCounties@data$FosterSuspensions = californiaCounties@data$FosterSuspensions*100
+
+```
+
+
+```{r}
+map = leaflet(californiaCounties) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  
+  addPolygons(fillOpacity = 0.8, 
+              weight = 1, 
+              color = "white", 
+              fillColor = ~pal(as.numeric(californiaCounties$FosterSuspensions)), 
+              label = californiaCounties$NAMELSAD) %>%
+  
+  addLegend(pal = pal, 
+            values = ~as.numeric(californiaCounties$FosterSuspensions), 
+            title = "Suspension Rate Per Enrollment for Foster Youth")
+
+map
+
+```
+
+```{R,warning=F,message=F}
+
+library(mapview)
+library(webshot)
+
+
+mapshot(map, file = "~/Desktop/suspension_california_files/SuspensionsMap.png")
+
+```
+
+Displayed in figure 6 is the suspension rate of foster youth by county. The yellow and green counties have the higher suspension rates, while the blue and purple counties have the lower suspension rates. There is no data reported on the county's’s suspension rate of foster youth for the counties that are gray.
+
+The county with the highest suspension rate of foster youth in the state of California is Mariposa County, where 38% of their foster youth were suspended per enrollment. Modoc County had the second highest with 26% of their foster youth being suspended. Following these counties were Mendocino County with 23% and Sacramento County with 20%.  The county with the lowest suspension rate of foster youth is Inyo County with 2% of their foster youth being suspended in the 2017-2018 school year.  
+
+### Figure 7
+```{r}
+suspensionsMar = subset(suspensionsCountyF, countyname == "Mariposa")
+
+suspensionsMar = aggregate(suspensionsMar$suspensionrate, list(suspensionsMar$schoolname), mean, na.rn = T)
+
+suspensionsMar$x[is.na(suspensionsMar$x)] <- 0 
+
+suspensionsMar$x = suspensionsMar$x*100
+
+Mar = ggplot(data = suspensionsMar, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Coulterville High", "Greeley Hill Elementary", "Lake Don Pedro Elementary", "Mariposa County High", "Mariposa County High", "Monarch Academy", "Sierra Foothill Charter", "Sierra Home", "Spring Hill High (Continuation)", "Woodland Elementary")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7))+
+  xlab("Schools") + 
+  ylab("Average Rate of Suspensions Per Enrollment")+
+  ggtitle("Average Rate of Suspensions Per Enrollment of Foster Youth in Mariposa County") +
+  theme(plot.title = element_text(size = 11, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("Coulterville High", "Greeley Hill Elementary", "Lake Don Pedro Elementary", "Mariposa County High", "Mariposa County High", "Monarch Academy", "Sierra Foothill Charter", "Sierra Home", "Spring Hill High Continuation", "Woodland Elementary"))+
+  theme(legend.position="none")
+
+Mar
+
+```
+
+Figure 7 displays all of the schools in Mariposa County. Of those schools, only two schools, Mariposa County High and Spring Hill High (Continuation), suspended foster youth, but they suspended those students at a high rate. The eight schools that did not suspend any foster youth had very few of these students attending the school, with 10 or fewer from that population. Mariposa County High had 27 foster youth attending their school. Spring Hill High (Continuation) had 17 foster youth attending their school.
+
+### Figure 8
+```{r}
+suspensionsMod = subset(suspensionsCountyF, countyname == "Modoc")
+
+suspensionsMod = aggregate(suspensionsMod$suspensionrate, list(suspensionsMod$schoolname), mean, na.rn = T)
+
+suspensionsMod$x[is.na(suspensionsMod$x)] <- 0 
+
+suspensionsMod$x = suspensionsMod$x*100
+
+Mod = ggplot(data = suspensionsMod, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Alturas Elementary", "High Desert Community Day School", "Modoc County Juvenile Court", "Modoc County Special Education", "Modoc High", "Modoc Middle", "Surprise Valley Elementary", "Surprise Valley High", "Tulelake Basin Elementary")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7))+
+  xlab("Schools") + 
+  ylab("Average Rate of Suspensions Per Enrollment")+
+  ggtitle("Average Rate of Suspensions Per Enrollment of Foster Youth in Modoc County") +
+  theme(plot.title = element_text(size = 11, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("Alturas Elementary", "High Desert Community Day School", "Modoc County Juvenile Court", "Modoc County Special Education", "Modoc High", "Modoc Middle", "Surprise Valley Elementary", "Surprise Valley High", "Tulelake Basin Elementary"))+
+  theme(legend.position="none")
+
+Mod
+
+
+```
+
+Figure 8 shows all of the schools in Modoc County.  Of those schools, only two schools suspended foster youth.  Alturas Elementary School had very few suspensions of foster youth with 13 foster youth attending their school.  The high rate of suspension is driven by one school: Modoc County Juvenile Court.  Modoc County Juvenile Court had 22 students attending their school.  The schools that did not suspend foster youth had seven or fewer foster youth attending their school.  
+
+### Figure 9
+```{r}
+suspensionsMend = subset(suspensionsCountyF, countyname == "Mendocino")
+
+suspensionsMend = aggregate(suspensionsMend$suspensionrate, list(suspensionsMend$schoolname), mean, na.rn = T)
+
+suspensionsMend$x[is.na(suspensionsMend$x)] <- 0 
+
+suspensionsMend = suspensionsMend %>%
+  arrange(desc(x), desc(Group.1))
+
+suspensionsMend = suspensionsMend[1:7,]
+
+suspensionsMend$x = suspensionsMend$x*100
+
+suspensionsMend$Group.1 = factor(suspensionsMend$Group.1, levels = c("Eagle Peak Middle", "Pomolita Middle", "Oak Manor Elementary", "Ukiah High", "Willits High", "Nokomis Elementary", "Yokayo Elementary"))
+
+Mend = ggplot(data = suspensionsMend, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Eagle Peak Middle", "Pomolita Middle", "Oak Manor Elementary", "Ukiah High", "Willits High", "Nokomis Elementary", "Yokayo Elementary")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7))+
+  xlab("Schools") + 
+  ylab("Average Rate of Suspensions Per Enrollment")+
+  ggtitle("Average Rate of Suspensions Per Enrollment of Foster Youth in Mendocino County") +
+  theme(plot.title = element_text(size = 11, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("Eagle Peak Middle", "Pomolita Middle", "Oak Manor Elementary", "Ukiah High", "Willits High", "Nokomis Elementary", "Yokayo Elementary"))+
+  theme(legend.position="none")
+
+Mend
+```
+
+Mendocino County consists of 40 public K-12 schools. In the graph above are the only schools that suspended foster youth. 17.5% of the schools in Mendocino County suspended foster youth, but Mendocino County has the third highest suspension rate in the state. The schools that did not suspend foster youth had 16 or fewer foster youth attending their school. Eagle Peak Middle, Willits High, and Nokomis Elementary all have the fewest number of foster youth attending their school of the schools suspending foster youth, with 12 foster youth attending their school. The schools that suspended foster youth had between 28 and 12 foster youth attending their school.
+
+### Figure 10
+```{r}
+
+suspensionsSac = subset(suspensionsCountyF, countyname == "Sacramento")
+
+suspensionsSac = aggregate(suspensionsSac$suspensionrate, list(suspensionsSac$schoolname), mean, na.rn = T)
+
+suspensionsSac$x[is.na(suspensionsSac$x)] <- 0 
+
+suspensionsSac = suspensionsSac %>%
+  arrange(desc(x), desc(Group.1))
+
+suspensionsSac = suspensionsSac[1:15,]
+
+suspensionsSac$x = suspensionsSac$x*100
+
+suspensionsSac$Group.1 = factor(suspensionsSac$Group.1, levels = c("Rosa Parks Elementary", "La Vista Center", "Palmiter Special Education", "Harriet G. Eddy Middle", "C. K. McClatchy High", "Monterey Trail High", "Del Campo High", "Casa Roble Fundamental High", "John F. Kennedy High", "San Juan High", "Pleasant Grove High", "Encina Preparatory High", "Samuel Jackman Middle", "Mesa Verde High", "Rio Americano High"))
+
+Sac = ggplot(data = suspensionsSac, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Rosa Parks Elementary", "La Vista Center", "Palmiter Special Education", "Harriet G. Eddy Middle", "C. K. McClatchy High", "Monterey Trail High", "Del Campo High", "Casa Roble Fundamental High", "John F. Kennedy High", "San Juan High", "Pleasant Grove High", "Encina Preparatory High", "Samuel Jackman Middle", "Mesa Verde High", "Rio Americano High")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7))+
+  xlab("Schools") + 
+  ylab("Average Rate of Suspensions Per Enrollment")+
+  ggtitle("Average Rate of Suspensions Per Enrollment of Foster Youth in Sacramento County") +
+  theme(plot.title = element_text(size = 11, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("Rosa Parks Elementary", "La Vista Center", "Palmiter Special Education", "Harriet G. Eddy Middle", "C. K. McClatchy High", "Monterey Trail High", "Del Campo High", "Casa Roble Fundamental High", "John F. Kennedy High", "San Juan High", "Pleasant Grove High", "Encina Preparatory High", "Samuel Jackman Middle", "Mesa Verde High", "Rio Americano High"))+
+  theme(legend.position="none")
+
+Sac
+```
+
+Sacramento County has 335 schools in the county.  78 of those schools have suspended at least one foster youth in the 2017-2018 school year.  The above graph illustrates the 15 schools with the highest suspension rates in the county.  The top 15 schools have between 11 and 46 foster youth attending their school.  The other schools that suspended foster youth were in about the same range of foster youth attending their school as the top 15 schools. There were two schools far outside of this range:  El Centro Junior/Senior High had 251 foster youth attending their school(according to the California Department of Education.^11^ Self-reported data from El Centro Jr./Sr. High in their 2017-2018 School Accountability Report Card states that there are 112 students attending 8-12th grade at the school, with no report of 5-7th grade.^19^), where they only suspended 4% of their foster youth and Options for Youth-San Juan had 58 foster youth and suspended 2% of their foster youth.  
+
+
+##  Do Suspension Rates Per Enrollment^6^ of Foster Youth Increase as Students Get Older?
+
+### Figure 11
+```{r}
+SuspensionByAge = subset(suspensionsCalifornia, type == "ES" | type == "MS" | type == "HS")
+
+SuspensionAgeF = subset(SuspensionByAge, studentgroup == "FOS")
+
+SuspensionAgeF$suspensionrate = SuspensionAgeF$currnumer / SuspensionAgeF$currdenom
+
+suspensionsByAge2 = aggregate(SuspensionAgeF$suspensionrate, list(SuspensionAgeF$type), mean, na.rm=T)
+
+```
+
+```{r}
+
+suspensionsByAge2$Group.1 =factor(suspensionsByAge2$Group.1, levels=c("ES", "MS", "HS"))
+
+suspensionsByAge2$x = suspensionsByAge2$x*100
+
+ASA = ggplot(data = suspensionsByAge2, aes(x= Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("Elementary School", "Middle School", "High School")) +
+  xlab("Type of School") + 
+  ylab("Average Rate of Suspensions Per Enrollment")+
+  ggtitle("Measurement of Average Rate of Suspension per Enrollment for Foster Youth By School Type") +
+  theme(plot.title = element_text(size = 10, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("Elementary School", "High School", "Middle School"))+
+  theme(legend.position="none")
+
+ASA
+
+
+
+```
+
+Foster youth in elementary school are suspended at a significantly lower rate than foster youth in middle and high school.  Once foster youth go into middle school and high school, their rates of suspension per enrollment increase. That rate decreases 3% as foster youth enter into high school. The rate of suspension does not continually increase as they progress from elementary school through high school, but foster youth do get suspended at a greater rate as they exit elementary school.  The differences between the suspension rates for foster youth between elementary school, middle school, and high school is highly significant. Moving from elementary school to middle school, there is a 12% increase in suspension rates.  Moving from middle school to high school, there is a 2% decrease in suspension rates.  
+
+### Figure 12
+```{r}
+Absent= read.csv("chronicAbsenteeism.txt", sep = "\t", stringsAsFactors = F, na.strings = "*")
+
+AbsentF = subset(Absent, studentgroup == "FOS")
+
+AbsentF = rename(AbsentF, AbsenteeNum="currnumer", AbsenteeDenom="currdenom", AbsenteeRate="currstatus")
+
+SuspVAbs = left_join(AbsentF, suspensionsCountyF, by = "schoolname")
+
+absenteeRateByCounty = aggregate(SuspVAbs$AbsenteeRate, list(SuspVAbs$countyname.x), mean, na.rm=T)
+
+avgabsentee = mean(SuspVAbs$AbsenteeRate, na.rm = T)
+
+TopAbsentee = subset(absenteeRateByCounty, Group.1 == "San Francisco" | Group.1 == "Modoc" | Group.1 == "Mariposa")
+
+TopAbsentee$Group.1 =factor(TopAbsentee$Group.1, levels=c("San Francisco", "Modoc", "Mariposa"))
+
+TAC = ggplot(data = TopAbsentee, aes(x=Group.1, y=x, fill=Group.1)) +geom_bar(stat="identity") + geom_text(aes(label = sprintf("%0.2f", round(x, digits = 2))), vjust=-0.3, color="black", size=3.5) + theme_minimal()+
+  scale_x_discrete(labels=c("San Francisco", "Modoc", "Mariposa")) + 
+  xlab("Counties")+
+  ylab("Chronic Absenteeism Rates")+
+  ggtitle("Top 3 Counties With the Highest Chronic Absenteeism Rates in California") +
+  theme(plot.title = element_text(size = 12, face = "bold"))+
+  scale_fill_discrete(name = "Groups", labels = c("San Francisco", "Modoc", "Mariposa"))+
+  theme(legend.position="none")
+
+TAC
+
+```
+
+Two of the three counties with the highest suspension rate of foster youth also have the highest rates of chronic absenteeism in California.  Modoc County, which has the second highest suspension rate of suspension of foster youth in California, also has the second highest chronic absenteeism rate of foster youth in California.  Mariposa County has the highest suspension rate of foster youth in California and the third highest chronic absenteeism rate of foster youth in California.  Mendocino, which has the third highest suspension rate of foster youth is not in the top three, but their chronic absenteeism rate of foster youth is 24%.  These absentee rates of foster youth are all well above the state average of 19%.  San Francisco is the outlier, with the highest rate of chronic absenteeism of foster youth, but only 9% of their foster youth are being suspended.  
+
+## Results
+
+The issue of high suspension rates for foster youth spans across the state, with schools such as Rosa Parks Elementary School suspending 62% of their foster youth. The trends of suspension for foster youth often follow the same trends as the state average for all students, but at much higher rates. For example, violent incidents are the main reason for suspensions of all students, defiance only incidents are the second leading cause of suspension, and illicit drugs are the third main reason.  The listing of top three causes of suspensions for all students are the same top 3 causes of suspensions for foster youth.  Although the trends are the same, foster youth are being suspended for these incidents at exponentially higher rates.
+
+Originally, it seemed that schools with fewer numbers of foster youth attending their school had a lower suspension rate of foster youth, but there are some schools that do not follow that trend.  There are some schools with larger numbers of foster youth attending the schools, where the schools had a low suspension rate of foster youth.  Some of those schools did not suspend any foster youth.  Most of those schools were Juvenile Court schools or Public Charter schools.  Neither style of school were normal settings for school with normal teaching styles.  Often, the teaching styles followed an individualized style of teaching, where the lesson plan is designed to accommodate each student's learning style and one-on-one teaching.  
+
+## Conclusion
+
+Foster youth often do not have stable living situations, living in temporary housing in foster homes or group homes. This instability in their home lives results in lack of support in their education. Foster youth are also often moved multiple times in a year due to the constant change in their living situation.  With moving schools comes with the challenge of adjusting to new schools. These factors and more create for foster youth to struggle in school more than other students.^17^  One issue foster students face is the high rate of suspension. The high rates of suspension and chronic absenteeism show California public schools' focus on foster youth and their way to solve the disciplinary issues of foster youth, which is to suspend them. There are other ways to solve these issues.  
+
+As this study uncovered, an obstacle foster students face is the high rate of suspension. The high rates of suspension and chronic absenteeism reveal how California public schools’ solve the disciplinary issues of foster youth, which is to suspend them. There are other ways to solve these issues, as demonstrated by schools with foster youth support programs. 
+
+Despite having more than 50 foster youth enrolled, several schools have not suspended any of their foster youth students and can act as replicable examples for schools with high rates of suspension for foster youth. Schools with high numbers of foster youth enrollment tend to be public charter schools. There is no connection between the suspension rates of foster youth in public schools and charter schools, but there are some public charter schools that’s have not suspended any of their foster youth. For example, Options for Youth-San Bernardino and Options for Youth-San Juan are groups of public charter schools in the San Bernardino County and San Juan Unified School District. They offer alternative teaching styles, often teaching only two subjects at a time which are taught at the rate the student needs. Options for Youth-San Bernardino has a 0% suspension rate of foster youth, with 51 students attending the school, while Options for Youth-San Juan suspended 2% of their foster youth with 58 foster youth attending the school. Another example of this teaching style from a public charter school was Opportunities for Learning-Baldwin Park II, with 64 foster youth attending their school and 0% suspension rate. This individualized-style of education allows for more one-on-one teaching that might offer the support that foster youth might not receive in their foster homes or group homes. They can address the individual issues each foster youth faces and work to solve the issues, without suspending the student and having them miss class. These are a couple of schools that could be examples for other schools to see how to reduce their suspension rates of foster youth.
+
+There are some public schools that did not suspend any foster youth, despite having a larger population of foster youth attending their school.  One school was Anaverde Hills, a K-8 school, which is a public school that had 25 foster youth attending their school in the 2017-2018 school year.  Anaverde Hills suspended 2 of their foster youth in the 2017-2018 school year.  In the 2016-2017 school year, Anaverde Hills suspended 3 of their 38 foster youth.  Anaverde Hills also had 47% of their students at or above grade level in English, which is 3% below the state average, and 27% of their students at or above grade level in math, which is 12% below the state level.  Anaverde Hills Counseling Program gave additional support to students strugglinh academically and emotionally.  They offered lunch time and after school tutoring sessions.  School psychologists, nurses, and counselors provide support for students physically and emotionally. The school also provides bilingual paraprofessional support staff to help English Learners better in classes.  This is an example of a public school that has done well, academically, while having low rates of suspensions of foster youth.  
+
+### Appendix
+
+```{r}
+
+res = suspensionsCountyF %>% 
+  group_by(districtname) %>% 
+  summarise(Freq=n()) 
+
+suspensionsCountyF$currnumer[is.na(suspensionsCountyF$currnumer)] <- 0 
+
+totalFYsuspensions = suspensionsCountyF %>%
+  group_by(districtname) %>%
+  summarise(SumNum = sum(currnumer)) 
+
+totalFYdenom = suspensionsCountyF %>%
+  group_by(districtname) %>%
+  summarise(SumDenom = sum(currdenom)) 
+
+FYavg = suspensionsCountyF %>%
+  group_by(districtname) %>%
+  mutate_at(vars(starts_with("SumNum")), function (x) x/totalFYdenom$SumDenom)
+
+districtsuspensions = left_join(FYavg, res, by = "districtname")
+
+model10 = lm(districtsuspensions$currstatus~districtsuspensions$Freq)
+
+summary(model10)
+
+```
+
+There is a correlation between the number of schools in a district and the suspension rate of foster youth within that district.  As the number of schools in a district increase, there is a decrease in the rate of suspensions of foster youth.  For an increase of one school in a district, there is a decrease of .01% in the suspension rate of foster youth. Therefore, most districts with the higher number of schools have lower suspension rates.   
+
+```{r}
+model5 = lm(SuspVAbs$AbsenteeRate~SuspVAbs$currstatus)
+
+summary(model5)
+```
+There is a connection between a school's absentee rate and their suspension rate of foster youth.  As the absentee rate increases, the suspension rate of foster youth will increase by .25%. 
+
+```{r}
+
+schoolID = read.csv("Schoolidentification.txt", sep = "\t", stringsAsFactors = F, na.strings = "*")
+
+schoolID = rename(schoolID, schoolname = "School", countyname = "County")
+
+schoolIDSF = subset(schoolID, countyname == "San Francisco")
+
+schoolIDSF = subset(schoolIDSF, StatusType == "Active")
+
+AbsentSF = subset(AbsentF, countyname == "San Francisco")
+
+IDxAbsentFSF = left_join(schoolIDSF, AbsentSF, by = "schoolname")
+
+suspensionFSF = subset(suspensionsCountyF, countyname == "San Francisco")
+
+IDxAbsentxSusFSF = left_join(IDxAbsentFSF, suspensionFSF, by = "schoolname")
+
+IDxAbsentxSusFSF[is.na(IDxAbsentxSusFSF)] <- 0
+
+model11 = lm(IDxAbsentxSusFSF$suspensionrate~IDxAbsentxSusFSF$SOCType)
+
+summary(model11)
+
+model12 = lm(IDxAbsentxSusFSF$suspensionrate~IDxAbsentxSusFSF$EILName)
+
+summary(model12)
+
+```
+
+Since San Francisco County has the highest chronic absenteeism rate in the state, this report analyzed if the type of schools had a significant relationship with suspension rates and absentee rates of foster youth. There is no connection between the type of school in San Francisco and their absentee rate.  There is a significant relationship between suspension rates of foster youth and public high schools in San Francisco.  There is a 6% increase in suspension rates of foster youth as there are more public high schools. Generally, there is a significant relationship between all high schools in San Francisco and suspension rates of foster youth.  There is a 4% increase in suspensions of foster youth as there are more high schools.  
+
+### Definitions:
+
+^1^ Suspension refers to the temporary removal of a student from his or her regular educational setting for a violation of school policies or rules. During suspension, a student is not allowed to attend school or attend school activities for a set length of time. ^22^
+
+^2^ A student is considered a chronic absentee if he or she is absent at least 10% or more of the instructional days that he/she were enrolled to attend in a school.^13^
+
+^3^ Foster Youth are defined as one who has been removed from his or her home pursuant to Section 309 of the Welfare and Institutions Code, is the subject of a petition filed under Section 300 or 602 of the Welfare and Institutions Code, or has been removed from his or her home and is the subject of a petition filled under Section 330 or 602 of the Welfare and Institutions Code. (E.C. 48853.5 (a)).^12^
+
+^4^ Homeless Youth are defined as children who lack a fixed, regular, and adequate nighttime residence. Under ESSA, the term "awaiting foster placement" was eliminated on December 10, 2016.  A fixed residence is one that is stationary, permanent, and not subject to change. A regular residence is one that is used on a normal, standard, and consistent basis.  An adequate residence is one that is sufficient for meeting both the physical and psychological needs typically met in home environments.^20^
+
+^5^ Suspensions per enrollment are the number of foster youth suspended divided by the number of foster youth enrolled in that school. 
+
+^6^ A violent incidence means committing one or more of the following actions: sexual battery/assault; caused, attempted, or threatened Physical Injury; aided or abetted physical injury; committed assault or battery on a school employee; used force or violence; committed an act of hate; hazing; harassment or intimidation; harassment or intimidation of a witness; made terrorist threats; obscene acts, profanity, and vulgarity; and bullying. ^11^
+
+### Works Cited:
+
+^7^ Barrat, Vanessa, and BethAnn Berliner. “The Invisible Achievement Gap: Education Outcomes of Students in Foster Care in California's Public Schools.” WestEd, WestEd, www.wested.org/resources/the-invisible-achievement-gap-education-outcomes-of-students-in-foster-care-in-californias-public-schools-part-1/.
+
+^8^ “California School Dashboard and System of Support.” California School Dashboard and System of Support - Accountability (CA Dept of Education), California Department of Education, http://www.cde.ca.gov/ta/ac/cm/index.asp.
+
+^9^ California School Dashboard (CA Dept of Education), California Department of Education, www.caschooldashboard.org/reports/ca/2018#suspension-rate-card.
+
+^10^ California (State). Legislature. House. Committee on Human Services. Childcare and development services:infants and toddlers:state funding, 2019. http://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=201920200AB167. 
+
+^11^ “Chronic Absenteeism Calculation.” Chronic Absenteeism Calculation - California School Dashboard and System of Support (CA Dept of Education), California Department of Education, http://www.cde.ca.gov/ta/ac/cm/chronabscal.asp.
+
+^12^ Lacoe, Johanna, and Matthew P. Steinberg. “Do Suspensions Affect Student Outcomes?” Educational Evaluation and Policy Analysis, vol. 41, no. 1, Mar. 2019, pp. 34–62, doi:10.3102/0162373718794897.
+
+^13^ Noguera, Pedro A., and Joseph P. Bishop. “Reversing 760,000 Lost Days of Learning in Our Schools.” EdSource, EdSource, 17 Sept. 2018, http://edsource.org/2018/reversing-760000-lost-days-of-learning-in-our-schools/602373.
+
+^14^ “Programs | Opportunities For Learning | Public Charter Schools.” Opportunities For Learning, Opportunities For Learning, http://emsofl.com/program/. 
+
+^15^ “Programs | Options For Youth | Public Charter Schools.” Options For Youth, Options For Youth, http://ofy.org/program/.
+
+^16^ “Public Schools and Districts Data Files.” Public Schools and Districts Data Files - Schools & Districts (CA Dept of Education), California Department of Education, http://www.cde.ca.gov/ds/si/ds/pubschls.asp.
+
+^17^ “Questions and Answers: Credit Transfer and School Completion.” American Bar Association and Casey Family Programs Legal Center for Foster Care and Education.
+
+^18^ “Resources for Homeless Children and Youths.” Resources for Homeless Children and Youths - Homeless Education (CA Dept of Education),
+California Department of Education, http://www.cde.ca.gov/sp/hs/cy/.
+
+^19^ School Accountability Report Card 2017-2018. El Centro Jr./Sr. High School, Published 2018-2019, School Accountability Report Card, http://www.sarconline.org/SarcPdfs/10/34103480106278.pdf.
+
+^20^ “Suspension.” NCSSD, National Clearinghouse on Supportive School Discipline , 27 Mar. 2019, http://supportiveschooldiscipline.org/learn/reference-guides/suspension.
+
+^21^ “Suspension Data.” Suspension Data - Student & School Data Files (Downloadable) (CA Dept of Education), California Department of Education, http://www.cde.ca.gov/ds/sd/sd/filessd.asp.
+
+^22^ Wood, J. Luke, et al. Get Out! Black Male Suspensions in California Public Schools. Black Male Institute and Black Minds Project , 2018, pp. 1–44, Get Out! Black Male Suspensions in California Public Schools.
+
+
+
